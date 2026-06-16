@@ -34,10 +34,7 @@ function serveFile(res, filePath, status = 200) {
 
 const routes = {
   '/': 'index.html',
-  '/ncm': 'ncm.html',
-  '/lpco': 'lpco.html',
   '/config': 'config.html',
-  '/tutorial-ncm': 'tutorial-ncm.html',
   '/notepad': 'notepad.html',
 };
 
