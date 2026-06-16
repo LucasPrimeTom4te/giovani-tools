@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configurações</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .config-page { max-width: 560px; padding: 2rem 1.5rem; }
+    .config-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .config-card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .config-card p { font-size: 0.9rem; color: #666; margin-bottom: 1rem; line-height: 1.6; }
+    .key-input-wrap { display: flex; gap: 0.5rem; }
+    .key-input-wrap input { flex: 1; font-family: 'Courier New', monospace; font-size: 0.9rem; }
+    .btn-save {
+      padding: 0.5rem 1.25rem;
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-clear {
+      padding: 0.5rem 1rem;
+      background: #fff;
+      color: #c0392b;
+      border: 1px solid #c0392b;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .btn-clear:hover { background: #fdf0f0; }
+    .feedback {
+      margin-top: 0.75rem;
+      padding: 0.6rem 1rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      display: none;
+    }
+    .feedback.ok { background: #edf7ed; border: 1px solid #a8d8a8; color: #1e6b1e; display: block; }
+    .feedback.err { background: #fdf0f0; border: 1px solid #f0b8b8; color: #a02020; display: block; }
+    .source-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .source-badge.env { background: #eef4fd; color: #1a4fa0; border: 1px solid #b8d0f4; }
+    .source-badge.user { background: #edf7ed; color: #1e6b1e; border: 1px solid #a8d8a8; }
+    .hint-link { color: #1a4fa0; text-decoration: underline; }
+    .status-row { font-size: 0.875rem; color: #666; margin-top: 0.75rem; }
+  </style>
+</head>
+<body class="dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">Ferramentas</div>
+    <nav class="sidebar-nav">
+      <a href="/">Início</a>
+      <a href="/ncm">Identificar NCM</a>
+
+      <span class="sidebar-section">Ajuda</span>
+      <details class="sidebar-submenu">
+        <summary>Tutoriais</summary>
+        <a href="/tutorial-ncm">Como usar o NCM</a>
+      </details>
+      <span class="sidebar-section">Sistema</span>
+      <a href="/config" class="active">Configurações</a>
+    </nav>
+  </aside>
+
+  <main class="dashboard-content">
+    <div class="config-page">
+      <h1 class="heading">Configurações</h1>
+      <p style="color:#666;font-size:0.95rem;margin-bottom:1.5rem">Gerencie as chaves de API e preferências do sistema.</p>
+
+      <div class="config-card">
+        <h2>Chave da API Groq <span id="source-badge" class="source-badge" style="display:none"></span></h2>
+        <p>
+          Usada pelo Classificador NCM para identificar códigos fiscais com IA.<br>
+          Se você não tiver uma chave, <a class="hint-link" href="/tutorial-ncm">veja o tutorial</a> de como obter gratuitamente.
+        </p>
+        <div class="key-input-wrap">
+          <input class="form-input" type="password" id="groq-key" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+          <button class="btn-save" onclick="salvarChave()">Salvar</button>
+          <button class="btn-clear" onclick="limparChave()">Remover</button>
+        </div>
+        <div id="feedback" class="feedback"></div>
+        <p class="status-row" id="status-row"></p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function carregarConfig() {
+      const badge = document.getElementById('source-badge');
+      const statusRow = document.getElementById('status-row');
+      const input = document.getElementById('groq-key');
+
+      const userKey = localStorage.getItem('groq-api-key-user');
+      if (userKey) {
+        input.placeholder = userKey.slice(0, 8) + '••••••••••••••••';
+        badge.style.display = 'inline-block';
+        badge.className = 'source-badge user';
+        badge.textContent = 'chave personalizada';
+        statusRow.textContent = 'Chave configurada por você. Clique em Remover para voltar à chave padrão do sistema.';
+        return;
+      }
+
+      const cfg = await fetch('/api/config').then(r => r.json());
+      if (cfg.groqApiKey) {
+        input.placeholder = cfg.groqApiKey.slice(0, 8) + '••••••••••••••••';
+        badge.style.display = 'inline-block';
+        badge.className = 'source-badge env';
+        badge.textContent = 'chave do sistema';
+        statusRow.textContent = 'Usando a chave padrão do sistema. Você pode substituir pela sua própria chave acima.';
+      } else {
+        badge.style.display = 'none';
+        statusRow.textContent = 'Nenhuma chave configurada. O Classificador NCM não funcionará sem uma chave da API Groq.';
+      }
+    }
+
+    async function salvarChave() {
+      const val = document.getElementById('groq-key').value.trim();
+      const fb = document.getElementById('feedback');
+      if (val) {
+        localStorage.setItem('groq-api-key-user', val);
+        fb.className = 'feedback ok';
+        fb.textContent = 'Chave salva com sucesso!';
+      } else {
+        localStorage.removeItem('groq-api-key-user');
+        fb.className = 'feedback ok';
+        fb.textContent = 'Chave removida. O sistema voltará a usar a chave padrão.';
+      }
+      document.getElementById('groq-key').value = '';
+      await carregarConfig();
+    }
+
+    async function limparChave() {
+      document.getElementById('groq-key').value = '';
+      localStorage.removeItem('groq-api-key-user');
+      const fb = document.getElementById('feedback');
+      fb.className = 'feedback ok';
+      fb.textContent = 'Chave personalizada removida. O sistema voltará a usar a chave padrão.';
+      await carregarConfig();
+    }
+
+    carregarConfig();
+  </script>
+</body>
+</html>

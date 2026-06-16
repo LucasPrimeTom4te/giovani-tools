@@ -1,0 +1,11 @@
+{
+  "name": "simple-router",
+  "version": "1.0.0",
+  "description": "Simple Node.js routing system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js",
+    "vercel": "npx vercel dev"
+  }
+}

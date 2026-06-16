@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leitura LPCO</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body.in-iframe .sidebar{display:none}
+    body.in-iframe .dashboard-content{margin-left:0}
+  </style>
+</head>
+<body class="dashboard">
+<script>if(window.self!==window.top)document.body.classList.add('in-iframe');</script>
+  <aside class="sidebar">
+    <div class="sidebar-header">Ferramentas</div>
+    <nav class="sidebar-nav">
+      <a href="/">Início</a>
+      <a href="/ncm">Identificar NCM</a>
+      <span style="padding:0.65rem 1.25rem;font-size:0.95rem;color:#bbb;display:block">Leitura LPCO <em style="font-size:0.8rem">(em andamento)</em></span>
+      <span class="sidebar-section">Ajuda</span>
+      <details class="sidebar-submenu">
+        <summary>Tutoriais</summary>
+        <a href="/tutorial-ncm">Como usar o NCM</a>
+      </details>
+      <span class="sidebar-section">Sistema</span>
+      <a href="/config">Configurações</a>
+    </nav>
+  </aside>
+  <main class="dashboard-content">
+    <div class="container">
+      <h1 class="heading">Leitura de Documentos LPCO</h1>
+      <p style="color:#666;margin-bottom:1.5rem">
+        Consulte Licenças, Permissões, Certificados e Outros documentos (LPCO) associados a uma operação.
+      </p>
+      <div class="form-group">
+        <label for="protocolo">Número do protocolo / documento</label>
+        <input class="form-input" type="text" id="protocolo" placeholder="Ex: 2026000012345">
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="consultar()">Consultar</button>
+      </div>
+      <div id="resultado" style="margin-top:1.5rem;padding:1rem;border:1px solid #ddd;border-radius:4px;min-height:80px;color:#888;font-style:italic">
+        Documento será exibido aqui.
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function consultar() {
+      const protocolo = document.getElementById('protocolo').value || '—';
+      document.getElementById('resultado').innerHTML =
+        `<strong>Protocolo:</strong> ${protocolo}<br><span style="color:#999">(simulação — integrar com sistema de LPCO)</span>`;
+    }
+  </script>
+</body>
+</html>
