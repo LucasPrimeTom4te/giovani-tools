@@ -38,6 +38,7 @@ const routes = {
   '/lpco': 'lpco.html',
   '/config': 'config.html',
   '/tutorial-ncm': 'tutorial-ncm.html',
+  '/notepad': 'notepad.html',
 };
 
 async function handler(req, res) {
@@ -94,6 +95,66 @@ async function handler(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true }));
     return;
+  }
+
+  // Notes API
+  if (url === '/api/notes' && method === 'GET') {
+    const notes = storage.getItem('notes') || [];
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(notes));
+    return;
+  }
+
+  if (url === '/api/notes' && method === 'POST') {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    await new Promise((resolve) => req.on('end', resolve));
+    try {
+      const { title, content } = JSON.parse(raw);
+      const notes = storage.getItem('notes') || [];
+      const note = { id: Date.now().toString(), title: title || '', content: content || '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      notes.unshift(note);
+      storage.setItem('notes', notes);
+      res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(note));
+    } catch {
+      res.writeHead(400);
+      res.end(JSON.stringify({ ok: false }));
+    }
+    return;
+  }
+
+  const noteMatch = url.match(/^\/api\/notes\/([^/]+)$/);
+  if (noteMatch) {
+    const id = noteMatch[1];
+
+    if (method === 'PUT') {
+      let raw = '';
+      req.on('data', (c) => (raw += c));
+      await new Promise((resolve) => req.on('end', resolve));
+      try {
+        const { title, content } = JSON.parse(raw);
+        const notes = storage.getItem('notes') || [];
+        const idx = notes.findIndex((n) => n.id === id);
+        if (idx === -1) { res.writeHead(404); res.end('{}'); return; }
+        notes[idx] = { ...notes[idx], title: title ?? notes[idx].title, content: content ?? notes[idx].content, updatedAt: new Date().toISOString() };
+        storage.setItem('notes', notes);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(notes[idx]));
+      } catch {
+        res.writeHead(400);
+        res.end(JSON.stringify({ ok: false }));
+      }
+      return;
+    }
+
+    if (method === 'DELETE') {
+      const notes = (storage.getItem('notes') || []).filter((n) => n.id !== id);
+      storage.setItem('notes', notes);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
   }
 
   const file = routes[url];

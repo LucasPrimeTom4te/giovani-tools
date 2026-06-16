@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bloco de Notas – Ferramentas</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .notepad-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 0;
+      height: calc(100vh - 4rem);
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    /* ── Lista ── */
+    .notes-list-panel {
+      border-right: 1px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      background: #fafafa;
+    }
+
+    .notes-list-header {
+      padding: 1rem;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .notes-list-header span {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #111;
+    }
+
+    .btn-new {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.75rem;
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-new:hover { opacity: 0.82; }
+
+    .notes-search {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .notes-search input {
+      width: 100%;
+      padding: 0.4rem 0.65rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      background: #fff;
+    }
+
+    .notes-search input:focus {
+      outline: 2px solid #666;
+      outline-offset: -1px;
+    }
+
+    .notes-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem 0;
+    }
+
+    .note-item {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.12s, border-color 0.12s;
+    }
+
+    .note-item:hover { background: #efefef; }
+
+    .note-item.active {
+      background: #e8e8e8;
+      border-left-color: #222;
+    }
+
+    .note-item-title {
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #111;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .note-item-preview {
+      font-size: 0.78rem;
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 0.15rem;
+    }
+
+    .note-item-date {
+      font-size: 0.72rem;
+      color: #bbb;
+      margin-top: 0.2rem;
+    }
+
+    .notes-empty {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: #aaa;
+      font-size: 0.875rem;
+    }
+
+    /* ── Editor ── */
+    .notes-editor-panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-toolbar {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      background: #fff;
+      min-height: 56px;
+    }
+
+    .editor-title-input {
+      flex: 1;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: #111;
+      padding: 0;
+    }
+
+    .editor-title-input::placeholder { color: #bbb; font-weight: 400; }
+
+    .editor-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .btn-save {
+      padding: 0.35rem 0.85rem;
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-save:hover { opacity: 0.82; }
+    .btn-save:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-delete {
+      padding: 0.35rem 0.65rem;
+      background: transparent;
+      color: #c0392b;
+      border: 1px solid #e8c8c6;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-delete:hover { background: #fdf0ef; }
+
+    .editor-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-textarea {
+      flex: 1;
+      width: 100%;
+      padding: 1.25rem 1.5rem;
+      border: none;
+      outline: none;
+      resize: none;
+      font-size: 0.95rem;
+      font-family: inherit;
+      line-height: 1.7;
+      color: #222;
+      background: #fff;
+    }
+
+    .editor-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 0.75rem;
+      color: #bbb;
+      font-size: 0.95rem;
+      user-select: none;
+    }
+
+    .editor-placeholder .icon { font-size: 2.5rem; }
+
+    .editor-status {
+      padding: 0.4rem 1.25rem;
+      font-size: 0.75rem;
+      color: #aaa;
+      border-top: 1px solid #f0f0f0;
+      background: #fafafa;
+    }
+
+    .status-saved { color: #2a7a2a; }
+    .status-unsaved { color: #b06000; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast--ok  { background: #e8f5e8; color: #2a7a2a; border: 1px solid #c3e6c3; }
+    .toast--err { background: #fdf0ef; color: #c0392b; border: 1px solid #f0cbc8; }
+
+    @media (max-width: 768px) {
+      .notepad-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .notes-list-panel {
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+        max-height: 300px;
+      }
+    }
+  </style>
+</head>
+<body class="dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">Ferramentas</div>
+    <nav class="sidebar-nav">
+      <a href="/">Início</a>
+      <a href="/ncm">Identificar NCM</a>
+      <a href="/notepad" class="active">Bloco de Notas</a>
+      <span class="sidebar-section">Ajuda</span>
+      <details class="sidebar-submenu">
+        <summary>Tutoriais</summary>
+        <a href="/tutorial-ncm">Como usar o NCM</a>
+      </details>
+      <span class="sidebar-section">Sistema</span>
+      <a href="/config">Configurações</a>
+    </nav>
+  </aside>
+
+  <main class="dashboard-content">
+    <div class="notepad-layout">
+      <!-- Lista de notas -->
+      <div class="notes-list-panel">
+        <div class="notes-list-header">
+          <span>Notas</span>
+          <button class="btn-new" onclick="newNote()">+ Nova</button>
+        </div>
+        <div class="notes-search">
+          <input type="text" id="searchInput" placeholder="Buscar notas…" oninput="filterNotes(this.value)">
+        </div>
+        <div class="notes-list" id="notesList"></div>
+      </div>
+
+      <!-- Editor -->
+      <div class="notes-editor-panel">
+        <div class="editor-toolbar" id="editorToolbar">
+          <span class="editor-placeholder" style="flex:1;align-items:flex-start;justify-content:flex-start;flex-direction:row;gap:0;height:auto;">
+            <span style="color:#bbb;font-size:0.95rem;">Selecione ou crie uma nota</span>
+          </span>
+        </div>
+        <div class="editor-body" id="editorBody">
+          <div class="editor-placeholder">
+            <span class="icon">📝</span>
+            <span>Selecione uma nota na lista ou crie uma nova.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let notes = [];
+    let currentId = null;
+    let saveTimer = null;
+
+    async function loadNotes() {
+      const res = await fetch('/api/notes');
+      notes = await res.json();
+      renderList(notes);
+    }
+
+    function renderList(list) {
+      const el = document.getElementById('notesList');
+      if (!list.length) {
+        el.innerHTML = '<div class="notes-empty">Nenhuma nota ainda.<br>Clique em "+ Nova" para começar.</div>';
+        return;
+      }
+      el.innerHTML = list.map(n => `
+        <div class="note-item${n.id === currentId ? ' active' : ''}" onclick="openNote('${n.id}')">
+          <div class="note-item-title">${escHtml(n.title || 'Sem título')}</div>
+          <div class="note-item-preview">${escHtml((n.content || '').replace(/\n/g,' ').slice(0,60))}</div>
+          <div class="note-item-date">${formatDate(n.updatedAt)}</div>
+        </div>
+      `).join('');
+    }
+
+    function filterNotes(q) {
+      const lq = q.toLowerCase();
+      const filtered = notes.filter(n =>
+        (n.title || '').toLowerCase().includes(lq) ||
+        (n.content || '').toLowerCase().includes(lq)
+      );
+      renderList(filtered);
+    }
+
+    function openNote(id) {
+      currentId = id;
+      const note = notes.find(n => n.id === id);
+      if (!note) return;
+
+      renderList(document.getElementById('searchInput').value
+        ? notes.filter(n => (n.title||'').toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()) || (n.content||'').toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()))
+        : notes
+      );
+
+      document.getElementById('editorToolbar').innerHTML = `
+        <input class="editor-title-input" id="titleInput" placeholder="Título da nota" value="${escAttr(note.title || '')}" oninput="markUnsaved()">
+        <div class="editor-actions">
+          <button class="btn-save" id="btnSave" onclick="saveNote()" disabled>Salvo</button>
+          <button class="btn-delete" onclick="deleteNote('${note.id}')">Excluir</button>
+        </div>
+      `;
+
+      document.getElementById('editorBody').innerHTML = `
+        <textarea class="editor-textarea" id="contentInput" placeholder="Escreva sua nota aqui…" oninput="markUnsaved()">${escHtml(note.content || '')}</textarea>
+        <div class="editor-status" id="editorStatus">Salvo · ${formatDate(note.updatedAt)}</div>
+      `;
+    }
+
+    function markUnsaved() {
+      const btn = document.getElementById('btnSave');
+      const status = document.getElementById('editorStatus');
+      if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+      if (status) { status.textContent = 'Alterações não salvas'; status.className = 'editor-status status-unsaved'; }
+
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveNote, 1500);
+    }
+
+    async function saveNote() {
+      if (!currentId) return;
+      clearTimeout(saveTimer);
+      const title = document.getElementById('titleInput')?.value ?? '';
+      const content = document.getElementById('contentInput')?.value ?? '';
+
+      const res = await fetch(`/api/notes/${currentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        const idx = notes.findIndex(n => n.id === currentId);
+        if (idx !== -1) notes[idx] = updated;
+
+        renderList(document.getElementById('searchInput').value
+          ? notes.filter(n => (n.title||'').toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()) || (n.content||'').toLowerCase().includes(document.getElementById('searchInput').value.toLowerCase()))
+          : notes
+        );
+
+        const btn = document.getElementById('btnSave');
+        const status = document.getElementById('editorStatus');
+        if (btn) { btn.textContent = 'Salvo'; btn.disabled = true; }
+        if (status) { status.textContent = `Salvo · ${formatDate(updated.updatedAt)}`; status.className = 'editor-status status-saved'; }
+      } else {
+        showToast('Erro ao salvar nota.', 'err');
+      }
+    }
+
+    async function newNote() {
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '', content: '' }),
+      });
+      const note = await res.json();
+      notes.unshift(note);
+      renderList(notes);
+      openNote(note.id);
+      document.getElementById('titleInput')?.focus();
+    }
+
+    async function deleteNote(id) {
+      if (!confirm('Excluir esta nota?')) return;
+      const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        notes = notes.filter(n => n.id !== id);
+        currentId = null;
+        renderList(notes);
+        document.getElementById('editorToolbar').innerHTML = `
+          <span style="color:#bbb;font-size:0.95rem;">Selecione ou crie uma nota</span>
+        `;
+        document.getElementById('editorBody').innerHTML = `
+          <div class="editor-placeholder">
+            <span class="icon">📝</span>
+            <span>Selecione uma nota na lista ou crie uma nova.</span>
+          </div>
+        `;
+        showToast('Nota excluída.', 'ok');
+      }
+    }
+
+    function showToast(msg, type = 'ok') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast toast--${type} show`;
+      setTimeout(() => { t.className = 'toast'; }, 2500);
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
+        ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function escAttr(s) {
+      return String(s).replace(/"/g,'&quot;');
+    }
+
+    loadNotes();
+  </script>
+</body>
+</html>
