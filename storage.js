@@ -1,51 +1,39 @@
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
 
-const DB_PATH = path.join(__dirname, 'data.json');
+const uri = process.env.MONGODB_URI;
+let client;
+let db;
 
-let data = {};
-
-function load() {
-  try {
-    data = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
-  } catch {
-    data = {};
+async function connect() {
+  if (db) return db;
+  if (!client) {
+    client = new MongoClient(uri);
+    await client.connect();
   }
-}
-
-function save() {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  db = client.db('giovani-tools');
+  return db;
 }
 
 const storage = {
-  getItem(key) {
-    load();
-    return data[key] ?? null;
+  async getItem(key) {
+    const database = await connect();
+    const doc = await database.collection('keyvalue').findOne({ key });
+    return doc ? doc.value : null;
   },
 
-  setItem(key, value) {
-    load();
-    data[key] = value;
-    save();
+  async setItem(key, value) {
+    const database = await connect();
+    await database.collection('keyvalue').updateOne(
+      { key },
+      { $set: { key, value } },
+      { upsert: true }
+    );
   },
 
-  removeItem(key) {
-    load();
-    delete data[key];
-    save();
-  },
-
-  getAll() {
-    load();
-    return data;
-  },
-
-  clear() {
-    data = {};
-    save();
+  async removeItem(key) {
+    const database = await connect();
+    await database.collection('keyvalue').deleteOne({ key });
   },
 };
-
-load();
 
 module.exports = storage;

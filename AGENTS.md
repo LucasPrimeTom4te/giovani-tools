@@ -1,4 +1,4 @@
-# Guia para IAs — Projeto Thiago Tools
+# Guia para IAs — Projeto Giovani Tools
 
 ## Perfil do usuário — LEIA PRIMEIRO
 
@@ -52,8 +52,8 @@ Se o usuário precisar rodar o projeto localmente pela primeira vez, guie nesta 
 ### 3. Clonar o projeto
 No Git Bash ou Prompt de Comando:
 ```
-git clone https://github.com/LucasPrimeTom4te/thiago-tools.git
-cd thiago-tools
+git clone https://github.com/LucasPrimeTom4te/giovani-tools.git
+cd giovani-tools
 ```
 
 ### 4. Instalar dependências
@@ -64,9 +64,9 @@ npm install
 ### 5. Criar o arquivo .env
 Crie um arquivo chamado `.env` na pasta do projeto com o conteúdo:
 ```
-GROQ_API_KEY=sua_chave_aqui
+MONGODB_URI="mongodb+srv://..."
 ```
-(Substituir `sua_chave_aqui` pela chave real — ver tutorial em `/tutorial-ncm`)
+(Substituir pela connection string real do MongoDB Atlas — pedir ao responsável do projeto)
 
 ### 6. Rodar o projeto
 ```
@@ -78,7 +78,34 @@ Abrir o navegador em: http://localhost:3000
 
 ## Visão geral do sistema
 
-Servidor Node.js puro (sem Express) com HTML estático em `views/`. Cada ferramenta do sistema é uma página HTML própria servida pelo servidor. O dashboard (`/`) exibe todas as ferramentas em cards com iframes.
+Servidor Node.js puro (sem Express) com HTML estático em `views/`. Cada ferramenta do sistema é uma página HTML própria servida pelo servidor.
+
+---
+
+## Banco de dados — MongoDB (OBRIGATÓRIO)
+
+**Todo dado persistido no sistema DEVE usar o MongoDB via `storage.js`.** Nunca use arquivos locais (`fs.writeFile`, `data.json`) para guardar dados do usuário — em produção no Vercel o sistema de arquivos é somente leitura e qualquer dado gravado assim seria perdido.
+
+O `storage.js` expõe uma interface simples de chave-valor que salva no MongoDB Atlas:
+
+```js
+const storage = require('./storage');
+
+// Ler um valor
+const valor = await storage.getItem('minha-chave');  // retorna null se não existir
+
+// Salvar um valor (qualquer tipo: string, número, objeto, array)
+await storage.setItem('minha-chave', { foo: 'bar' });
+
+// Remover um valor
+await storage.removeItem('minha-chave');
+```
+
+> Todos os métodos são `async` — sempre use `await`.
+
+A conexão com o MongoDB é feita automaticamente a partir da variável de ambiente `MONGODB_URI` definida no `.env` (local) e nas variáveis de ambiente do Vercel (produção). Você não precisa se preocupar com a conexão — o `storage.js` gerencia isso.
+
+**Ao criar novos endpoints de API** que precisam persistir dados, sempre use `storage.getItem` / `storage.setItem`. Nunca escreva em arquivos.
 
 ---
 
@@ -95,13 +122,13 @@ npm test           # roda os testes
 
 ```
 server.js          # roteador e lógica do servidor
-storage.js         # camada de persistência (data.json)
+storage.js         # camada de persistência — MongoDB (usar sempre)
 views/             # páginas HTML de cada ferramenta
 public/
   css/style.css    # estilos globais do sistema
   js/              # scripts estáticos compartilhados
-data.json          # dados persistidos (gitignored)
-.env               # variáveis de ambiente (gitignored)
+.env               # variáveis de ambiente (gitignored — nunca commitar)
+package.json       # dependências do projeto
 .claude/
   launch.json      # configuração do preview no Claude Code
 ```
@@ -127,19 +154,12 @@ Coloque o arquivo em `views/nomeferramenta.html`. A página deve usar o layout p
   <!-- estilos específicos da ferramenta aqui -->
 </head>
 <body class="dashboard">
-<script>if(window.self!==window.top)document.body.classList.add('in-iframe');</script>
   <aside class="sidebar">
-    <div class="sidebar-header">Meu Sistema</div>
+    <div class="sidebar-header">Ferramentas</div>
     <nav class="sidebar-nav">
       <a href="/">Início</a>
-      <a href="/ncm">Identificar NCM</a>
-      <a href="/lpco">Leitura de Documentos LPCO</a>
+      <a href="/notepad">Bloco de Notas</a>
       <a href="/nomeferramenta" class="active">Nome da Ferramenta</a>
-      <span class="sidebar-section">Ajuda</span>
-      <details class="sidebar-submenu">
-        <summary>Tutoriais</summary>
-        <a href="/tutorial-ncm">Como usar o NCM</a>
-      </details>
       <span class="sidebar-section">Sistema</span>
       <a href="/config">Configurações</a>
     </nav>
@@ -151,9 +171,7 @@ Coloque o arquivo em `views/nomeferramenta.html`. A página deve usar o layout p
 </html>
 ```
 
-**Atenção:** adicionar a nova rota na sidebar de TODAS as outras views também (index.html, ncm.html, lpco.html, config.html, tutorial-ncm.html).
-
-O snippet `<script>if(window.self!==window.top)...</script>` logo após `<body>` é obrigatório — ele esconde a sidebar quando a página está embutida no dashboard como iframe.
+**Atenção:** adicionar a nova rota na sidebar de TODAS as outras views também (index.html, notepad.html, config.html).
 
 ### 2. Registrar a rota em server.js
 
@@ -162,26 +180,25 @@ Adicione a nova rota no objeto `routes`:
 ```js
 const routes = {
   '/': 'index.html',
-  '/ncm': 'ncm.html',
-  '/lpco': 'lpco.html',
   '/config': 'config.html',
-  '/tutorial-ncm': 'tutorial-ncm.html',
+  '/notepad': 'notepad.html',
   '/nomeferramenta': 'nomeferramenta.html',  // ← adicionar aqui
 };
 ```
 
 ### 3. Adicionar card no dashboard (views/index.html)
 
-Dentro de `<div class="dashboard-grid">`, adicione:
+Dentro de `<div class="tools-grid">`, adicione:
 
 ```html
-<div class="card" data-card="nomeferramenta" data-colspan="1">
-  <div class="card-header">Nome da Ferramenta</div>
-  <div class="card-body">
-    <iframe src="/nomeferramenta" loading="lazy"></iframe>
-    <div class="resize-handle" title="Arrastar para redimensionar"></div>
+<a href="/nomeferramenta" class="tool-card">
+  <div class="tool-icon tool-icon--blue">🔧</div>
+  <div>
+    <div class="tool-name">Nome da Ferramenta</div>
+    <div class="tool-desc">Descrição curta do que a ferramenta faz.</div>
   </div>
-</div>
+  <span class="tool-badge tool-badge--available">Disponível</span>
+</a>
 ```
 
 ### 4. Tratar chaves de API e segredos
@@ -190,11 +207,11 @@ Se a ferramenta usa uma chave de API:
 
 - **Nunca** deixar a chave hardcoded no HTML.
 - Adicionar ao `.env`: `NOME_API_KEY=valor`
+- Adicionar também nas variáveis de ambiente do Vercel (painel do projeto)
 - Expor via endpoint no `server.js` dentro do bloco `/api/config GET`:
 
 ```js
 res.end(JSON.stringify({
-  groqApiKey: process.env.GROQ_API_KEY || '',
   novaApiKey: process.env.NOVA_API_KEY || '',  // ← adicionar aqui
 }));
 ```
@@ -208,7 +225,7 @@ fetch('/api/config').then(r => r.json()).then(cfg => { apiKey = cfg.novaApiKey |
 
 ### 5. Verificar .gitignore
 
-Confirmar que `.env` e `data.json` estão no `.gitignore`. Nunca commitar segredos.
+Confirmar que `.env` está no `.gitignore`. Nunca commitar segredos ou a connection string do MongoDB.
 
 ---
 
@@ -217,27 +234,24 @@ Confirmar que `.env` e `data.json` estão no `.gitignore`. Nunca commitar segred
 - CSS global em `public/css/style.css` — usar as classes existentes antes de criar novas.
 - Classes principais: `.card`, `.card-header`, `.card-body`, `.sidebar`, `.dashboard-content`, `.heading`, `.form-group`, `.form-input`, `.btn`.
 - Estilos específicos de uma ferramenta ficam em `<style>` dentro do próprio HTML da view.
-- Variáveis CSS do sistema: `--txt`, `--txt2`, `--txt3`, `--border`, `--border2`, `--surface`, `--bg`.
-- Para ferramentas com design próprio (ex: NCM), usar variáveis locais e `@media (prefers-color-scheme: dark)` para suporte a tema escuro.
 
 ---
 
 ## Padrões de backend
 
 - Novos endpoints API seguem o padrão `if (url === '/api/rota' && method === 'GET') { ... }` em `server.js`.
-- Para persistir dados, usar `storage.getItem('chave')` e `storage.setItem('chave', valor)`.
-- Não usar `npm install` sem necessidade — o servidor não usa Express nem frameworks externos.
+- Para persistir dados, **sempre** usar `await storage.getItem('chave')` e `await storage.setItem('chave', valor)`.
+- Não usar `npm install` sem necessidade — o servidor não usa Express nem frameworks externos (exceto `mongodb`, já instalado).
 
 ---
 
 ## Checklist ao integrar uma nova ferramenta
 
 - [ ] Arquivo criado em `views/nomeferramenta.html` com sidebar e layout do sistema
-- [ ] Script de detecção de iframe adicionado logo após `<body>`
 - [ ] Rota adicionada em `server.js` no objeto `routes`
 - [ ] Card adicionado em `views/index.html` no dashboard
 - [ ] Link adicionado na sidebar de **todas** as outras views
 - [ ] Chaves de API movidas para `.env` e expostas via `/api/config`
+- [ ] Dados persistidos via `storage.js` (MongoDB) — nunca em arquivos locais
 - [ ] `.env` está no `.gitignore`
 - [ ] Servidor reiniciado e rota testada
-- [ ] Screenshot do preview tirada para confirmar que o layout está correto

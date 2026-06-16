@@ -48,7 +48,7 @@ async function handler(req, res) {
   }
 
   if (url === '/api/config' && method === 'GET') {
-    const userKey = storage.getItem('groq-api-key');
+    const userKey = await storage.getItem('groq-api-key');
     const groqApiKey = userKey || process.env.GROQ_API_KEY || '';
     const groqSource = userKey ? 'user' : 'env';
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -63,9 +63,9 @@ async function handler(req, res) {
     try {
       const { groqApiKey } = JSON.parse(raw);
       if (groqApiKey) {
-        storage.setItem('groq-api-key', groqApiKey);
+        await storage.setItem('groq-api-key', groqApiKey);
       } else {
-        storage.removeItem('groq-api-key');
+        await storage.removeItem('groq-api-key');
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true }));
@@ -76,9 +76,8 @@ async function handler(req, res) {
     return;
   }
 
-
   if (url === '/api/layout' && method === 'GET') {
-    const layout = storage.getItem('dashboard-layout');
+    const layout = await storage.getItem('dashboard-layout');
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(layout ?? { columns: 2, order: [], sizes: {} }));
     return;
@@ -88,7 +87,7 @@ async function handler(req, res) {
     let raw = '';
     req.on('data', (c) => (raw += c));
     await new Promise((resolve) => req.on('end', resolve));
-    try { storage.setItem('dashboard-layout', JSON.parse(raw)); } catch {}
+    try { await storage.setItem('dashboard-layout', JSON.parse(raw)); } catch {}
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true }));
     return;
@@ -96,7 +95,7 @@ async function handler(req, res) {
 
   // Notes API
   if (url === '/api/notes' && method === 'GET') {
-    const notes = storage.getItem('notes') || [];
+    const notes = await storage.getItem('notes') || [];
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(notes));
     return;
@@ -108,10 +107,10 @@ async function handler(req, res) {
     await new Promise((resolve) => req.on('end', resolve));
     try {
       const { title, content } = JSON.parse(raw);
-      const notes = storage.getItem('notes') || [];
+      const notes = await storage.getItem('notes') || [];
       const note = { id: Date.now().toString(), title: title || '', content: content || '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       notes.unshift(note);
-      storage.setItem('notes', notes);
+      await storage.setItem('notes', notes);
       res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(note));
     } catch {
@@ -131,11 +130,11 @@ async function handler(req, res) {
       await new Promise((resolve) => req.on('end', resolve));
       try {
         const { title, content } = JSON.parse(raw);
-        const notes = storage.getItem('notes') || [];
+        const notes = await storage.getItem('notes') || [];
         const idx = notes.findIndex((n) => n.id === id);
         if (idx === -1) { res.writeHead(404); res.end('{}'); return; }
         notes[idx] = { ...notes[idx], title: title ?? notes[idx].title, content: content ?? notes[idx].content, updatedAt: new Date().toISOString() };
-        storage.setItem('notes', notes);
+        await storage.setItem('notes', notes);
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify(notes[idx]));
       } catch {
@@ -146,8 +145,8 @@ async function handler(req, res) {
     }
 
     if (method === 'DELETE') {
-      const notes = (storage.getItem('notes') || []).filter((n) => n.id !== id);
-      storage.setItem('notes', notes);
+      const notes = (await storage.getItem('notes') || []).filter((n) => n.id !== id);
+      await storage.setItem('notes', notes);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true }));
       return;
