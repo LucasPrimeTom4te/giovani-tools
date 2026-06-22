@@ -9,6 +9,7 @@
     "vercel": "npx vercel dev"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
     "mongodb": "^7.3.0"
   }
 }

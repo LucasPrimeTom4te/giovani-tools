@@ -36,6 +36,7 @@ const routes = {
   '/': 'index.html',
   '/config': 'config.html',
   '/notepad': 'notepad.html',
+  '/comex': 'comex.html',
 };
 
 async function handler(req, res) {
@@ -116,6 +117,48 @@ async function handler(req, res) {
     } catch {
       res.writeHead(400);
       res.end(JSON.stringify({ ok: false }));
+    }
+    return;
+  }
+
+  if (url === '/api/comex' && method === 'POST') {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    await new Promise((resolve) => req.on('end', resolve));
+    try {
+      const { fileBase64, mediaType, history, question } = JSON.parse(raw);
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'ANTHROPIC_API_KEY não configurada.' }));
+        return;
+      }
+      const Anthropic = require('@anthropic-ai/sdk');
+      const client = new Anthropic.default({ apiKey });
+
+      const isPdf = mediaType === 'application/pdf';
+      const docBlock = isPdf
+        ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: fileBase64 } }
+        : { type: 'image', source: { type: 'base64', media_type: mediaType, data: fileBase64 } };
+
+      let messages = [];
+      if (!history || history.length === 0) {
+        messages = [{ role: 'user', content: [docBlock, { type: 'text', text: question }] }];
+      } else {
+        messages.push({ role: 'user', content: [docBlock, { type: 'text', text: history[0].text }] });
+        for (let i = 1; i < history.length; i++) {
+          messages.push({ role: history[i].role, content: history[i].text });
+        }
+        messages.push({ role: 'user', content: question });
+      }
+
+      const system = 'Você é um especialista em documentos de comércio exterior (COMEX). Analise o documento enviado e responda as perguntas do usuário com precisão, extraindo as informações diretamente do documento. Responda sempre em português. Seja direto e objetivo.';
+      const response = await client.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 2048, system, messages });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ answer: response.content[0].text }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: err.message || 'Erro ao processar documento.' }));
     }
     return;
   }
