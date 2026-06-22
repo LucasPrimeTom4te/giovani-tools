@@ -126,36 +126,53 @@ async function handler(req, res) {
     req.on('data', (c) => (raw += c));
     await new Promise((resolve) => req.on('end', resolve));
     try {
-      const { fileBase64, mediaType, history, question } = JSON.parse(raw);
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
+      const { fileBase64, mediaType, textContent, history, question } = JSON.parse(raw);
+      const groqKey = await storage.getItem('groq-api-key') || process.env.GROQ_API_KEY;
+      if (!groqKey) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: 'ANTHROPIC_API_KEY não configurada.' }));
+        res.end(JSON.stringify({ error: 'Chave da API Groq não configurada. Acesse Configurações para adicionar.' }));
         return;
       }
-      const Anthropic = require('@anthropic-ai/sdk');
-      const client = new Anthropic.default({ apiKey });
 
-      const isPdf = mediaType === 'application/pdf';
-      const docBlock = isPdf
-        ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: fileBase64 } }
-        : { type: 'image', source: { type: 'base64', media_type: mediaType, data: fileBase64 } };
+      const systemPrompt = 'Você é um especialista em documentos de comércio exterior (COMEX). Analise o documento enviado e responda as perguntas do usuário com precisão, extraindo as informações diretamente do documento. Responda sempre em português. Seja direto e objetivo.';
 
       let messages = [];
-      if (!history || history.length === 0) {
-        messages = [{ role: 'user', content: [docBlock, { type: 'text', text: question }] }];
-      } else {
-        messages.push({ role: 'user', content: [docBlock, { type: 'text', text: history[0].text }] });
-        for (let i = 1; i < history.length; i++) {
-          messages.push({ role: history[i].role, content: history[i].text });
+      if (textContent) {
+        // PDF: texto extraído pelo cliente
+        const docContext = `Documento COMEX:\n\n${textContent}`;
+        if (!history || history.length === 0) {
+          messages = [{ role: 'user', content: `${docContext}\n\nPergunta: ${question}` }];
+        } else {
+          messages.push({ role: 'user', content: `${docContext}\n\nPergunta: ${history[0].text}` });
+          for (let i = 1; i < history.length; i++) {
+            messages.push({ role: history[i].role, content: history[i].text });
+          }
+          messages.push({ role: 'user', content: question });
         }
-        messages.push({ role: 'user', content: question });
+      } else {
+        // Imagem: vision
+        const imageUrl = `data:${mediaType};base64,${fileBase64}`;
+        if (!history || history.length === 0) {
+          messages = [{ role: 'user', content: [{ type: 'image_url', image_url: { url: imageUrl } }, { type: 'text', text: question }] }];
+        } else {
+          messages.push({ role: 'user', content: [{ type: 'image_url', image_url: { url: imageUrl } }, { type: 'text', text: history[0].text }] });
+          for (let i = 1; i < history.length; i++) {
+            messages.push({ role: history[i].role, content: history[i].text });
+          }
+          messages.push({ role: 'user', content: question });
+        }
       }
 
-      const system = 'Você é um especialista em documentos de comércio exterior (COMEX). Analise o documento enviado e responda as perguntas do usuário com precisão, extraindo as informações diretamente do documento. Responda sempre em português. Seja direto e objetivo.';
-      const response = await client.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 2048, system, messages });
+      const model = textContent ? 'llama-3.3-70b-versatile' : 'meta-llama/llama-4-scout-17b-16e-instruct';
+      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages: [{ role: 'system', content: systemPrompt }, ...messages], max_tokens: 2048 }),
+      });
+      const groqData = await groqRes.json();
+      if (!groqRes.ok) throw new Error(groqData.error?.message || 'Erro na API Groq.');
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ answer: response.content[0].text }));
+      res.end(JSON.stringify({ answer: groqData.choices[0].message.content }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: err.message || 'Erro ao processar documento.' }));

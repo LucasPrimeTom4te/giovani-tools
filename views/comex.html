@@ -312,10 +312,14 @@
     </div>
   </main>
 
-  <script>
+  <script type="module">
+    import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
     const state = {
       fileBase64: null,
       mediaType: null,
+      textContent: null, // extracted text for PDFs
       fileName: null,
       history: [],
       loading: false,
@@ -331,11 +335,9 @@
     const fileTypeEl = document.getElementById('fileType');
     const btnClear = document.getElementById('btnClear');
     const chatMessages = document.getElementById('chatMessages');
-    const chatEmpty = document.getElementById('chatEmpty');
     const chatInput = document.getElementById('chatInput');
     const btnSend = document.getElementById('btnSend');
 
-    // Drag-and-drop
     uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
     uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
     uploadZone.addEventListener('drop', (e) => {
@@ -344,74 +346,86 @@
       const file = e.dataTransfer.files[0];
       if (file) loadFile(file);
     });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
 
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files[0]) loadFile(fileInput.files[0]);
-    });
+    async function extractPdfText(arrayBuffer) {
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(item => item.str).join(' ') + '\n\n';
+      }
+      return text.trim();
+    }
 
-    function loadFile(file) {
+    async function loadFile(file) {
       const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
       if (!allowed.includes(file.type)) {
         alert('Tipo de arquivo não suportado. Use PDF, PNG, JPG ou WEBP.');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target.result;
-        const base64 = dataUrl.split(',')[1];
+
+      fileNameEl.textContent = 'Carregando...';
+      fileTypeEl.textContent = file.type;
+      fileIcon.textContent = file.type === 'application/pdf' ? '📋' : '🖼️';
+      uploadSection.style.display = 'none';
+      fileLoadedSection.style.display = '';
+
+      const arrayBuffer = await file.arrayBuffer();
+
+      state.mediaType = file.type;
+      state.fileName = file.name;
+      state.history = [];
+      state.fileBase64 = null;
+      state.textContent = null;
+
+      if (file.type === 'application/pdf') {
+        try {
+          state.textContent = await extractPdfText(arrayBuffer);
+          fileTypeEl.textContent = `PDF — ${state.textContent.length} caracteres extraídos`;
+        } catch {
+          alert('Não foi possível extrair texto do PDF.');
+          resetUpload();
+          return;
+        }
+      } else {
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
         state.fileBase64 = base64;
-        state.mediaType = file.type;
-        state.fileName = file.name;
-        state.history = [];
-
-        fileNameEl.textContent = file.name;
         fileTypeEl.textContent = file.type;
-        fileIcon.textContent = file.type === 'application/pdf' ? '📋' : '🖼️';
+      }
 
-        uploadSection.style.display = 'none';
-        fileLoadedSection.style.display = '';
-        chatSection.style.display = '';
-        clearMessages();
-      };
-      reader.readAsDataURL(file);
+      fileNameEl.textContent = file.name;
+      chatSection.style.display = '';
+      clearMessages();
     }
 
-    btnClear.addEventListener('click', () => {
-      state.fileBase64 = null;
-      state.mediaType = null;
-      state.fileName = null;
-      state.history = [];
+    function resetUpload() {
+      state.fileBase64 = null; state.textContent = null;
+      state.mediaType = null; state.fileName = null; state.history = [];
       fileInput.value = '';
       uploadSection.style.display = '';
       fileLoadedSection.style.display = 'none';
       chatSection.style.display = 'none';
-    });
+    }
+
+    btnClear.addEventListener('click', resetUpload);
 
     function clearMessages() {
-      chatMessages.innerHTML = '';
-      const empty = document.createElement('div');
-      empty.className = 'chat-empty';
-      empty.id = 'chatEmpty';
-      empty.textContent = 'Faça uma pergunta sobre o documento acima.';
-      chatMessages.appendChild(empty);
+      chatMessages.innerHTML = '<div class="chat-empty">Faça uma pergunta sobre o documento acima.</div>';
     }
 
     function appendMessage(role, text, isError) {
-      // Remove empty placeholder
       const empty = chatMessages.querySelector('.chat-empty');
       if (empty) empty.remove();
-
       const wrap = document.createElement('div');
       wrap.className = `chat-msg chat-msg--${role}`;
-
       const label = document.createElement('div');
       label.className = 'chat-msg-label';
       label.textContent = role === 'user' ? 'Você' : 'Assistente';
-
       const bubble = document.createElement('div');
       bubble.className = 'chat-msg-bubble' + (isError ? ' error' : '');
       bubble.textContent = text;
-
       wrap.appendChild(label);
       wrap.appendChild(bubble);
       chatMessages.appendChild(wrap);
@@ -422,7 +436,6 @@
     function appendSpinner() {
       const empty = chatMessages.querySelector('.chat-empty');
       if (empty) empty.remove();
-
       const wrap = document.createElement('div');
       wrap.className = 'chat-msg chat-msg--assistant';
       wrap.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div><span>Analisando documento...</span></div>';
@@ -433,27 +446,28 @@
 
     async function sendMessage() {
       const question = chatInput.value.trim();
-      if (!question || state.loading || !state.fileBase64) return;
+      if (!question || state.loading || (!state.fileBase64 && !state.textContent)) return;
 
       state.loading = true;
       btnSend.disabled = true;
       chatInput.value = '';
       chatInput.style.height = '';
-
       appendMessage('user', question);
-
       const spinnerEl = appendSpinner();
 
       try {
+        const body = { history: state.history, question };
+        if (state.textContent) {
+          body.textContent = state.textContent;
+        } else {
+          body.fileBase64 = state.fileBase64;
+          body.mediaType = state.mediaType;
+        }
+
         const res = await fetch('/api/comex', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileBase64: state.fileBase64,
-            mediaType: state.mediaType,
-            history: state.history,
-            question,
-          }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
         spinnerEl.remove();
@@ -476,15 +490,9 @@
     }
 
     btnSend.addEventListener('click', sendMessage);
-
     chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
-
-    // Auto-resize textarea
     chatInput.addEventListener('input', () => {
       chatInput.style.height = 'auto';
       chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
