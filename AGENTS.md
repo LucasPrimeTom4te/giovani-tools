@@ -237,9 +237,66 @@ Confirmar que `.env` está no `.gitignore`. Nunca commitar segredos ou a connect
 
 ---
 
+## Sistema de autenticação — OBRIGATÓRIO
+
+O sistema possui autenticação baseada em sessão (cookie `HttpOnly`). **Toda nova funcionalidade deve respeitar essas regras:**
+
+### Usuários
+- **Usuário master**: definido pelas variáveis de ambiente `MASTER_USER` e `MASTER_PASS`. Nunca é armazenado no banco — sempre validado pelo ENV.
+- **Usuários comuns**: armazenados no MongoDB via `storage.getItem('auth-users')` (array de objetos com `id`, `username`, `passwordHash`, `createdAt`).
+- Senhas nunca são salvas em texto puro — sempre use `auth.hashPassword(senha)` de `auth.js`.
+
+### Proteger novas rotas de página (HTML)
+Toda rota nova é automaticamente protegida pelo middleware de auth em `server.js`. **Não é necessário nenhum código extra** — o handler já redireciona para `/login` se não houver sessão válida.
+
+Se a rota for exclusiva do master, adicione a verificação explícita:
+```js
+if (urlPath === '/minha-rota') {
+  if (!session.isMaster) { redirect(res, '/'); return; }
+}
+```
+
+### Proteger novos endpoints de API
+Todos os endpoints `/api/*` já exigem sessão válida (o middleware retorna 401 se não autenticado). Para endpoints restritos ao master, adicione:
+```js
+if (!session.isMaster) { json(res, 403, { error: 'Acesso negado' }); return; }
+```
+
+### Sidebar das views
+Toda nova view deve incluir o bloco de sidebar com o link de Usuários (oculto por padrão, exibido só para o master) e o botão de logout:
+```html
+<nav class="sidebar-nav">
+  <a href="/">Início</a>
+  <!-- outros links -->
+  <span class="sidebar-section">Sistema</span>
+  <a href="/users" id="navUsers" style="display:none">Usuários</a>
+  <a href="/config">Configurações</a>
+</nav>
+<div style="padding:1rem;margin-top:auto;border-top:1px solid #eee;">
+  <div id="sidebarUser" style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;"></div>
+  <button onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>location.href='/login')" style="font-size:0.8rem;background:none;border:none;color:#999;cursor:pointer;padding:0;font-family:inherit;">Sair</button>
+</div>
+```
+E no `<script>` da página:
+```js
+fetch('/api/auth/me').then(r=>r.json()).then(me=>{
+  document.getElementById('sidebarUser').textContent = me.username || '';
+  if (me.isMaster) document.getElementById('navUsers').style.display = '';
+});
+```
+
+### Variáveis de ambiente necessárias
+```
+MASTER_USER=giovanni       # usuário do master
+MASTER_PASS=...            # senha do master
+PASSWORD_SALT=...          # salt para hash de senhas (nunca alterar após produção)
+```
+
+---
+
 ## Padrões de backend
 
-- Novos endpoints API seguem o padrão `if (url === '/api/rota' && method === 'GET') { ... }` em `server.js`.
+- Novos endpoints API seguem o padrão `if (urlPath === '/api/rota' && method === 'GET') { ... }` em `server.js`. **Usar `urlPath` (sem query string), não `url`.**
 - Para persistir dados, **sempre** usar `await storage.getItem('chave')` e `await storage.setItem('chave', valor)`.
 - Não usar `npm install` sem necessidade — o servidor não usa Express nem frameworks externos (exceto `mongodb`, já instalado).
 

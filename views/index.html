@@ -121,9 +121,20 @@
       <a href="/notepad">Bloco de Notas</a>
       <a href="/comex">Leitor COMEX</a>
       <span class="sidebar-section">Sistema</span>
+      <a href="/users" id="navUsers" style="display:none">Usuários</a>
       <a href="/config">Configurações</a>
     </nav>
+    <div style="padding:1rem;margin-top:auto;border-top:1px solid #eee;">
+      <div id="sidebarUser" style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;"></div>
+      <button onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>location.href='/login')" style="font-size:0.8rem;background:none;border:none;color:#999;cursor:pointer;padding:0;font-family:inherit;">Sair</button>
+    </div>
   </aside>
+  <script>
+    fetch('/api/auth/me').then(r=>r.json()).then(me=>{
+      document.getElementById('sidebarUser').textContent = me.username || '';
+      if (me.isMaster) document.getElementById('navUsers').style.display = '';
+    });
+  </script>
 
   <main class="dashboard-content">
     <div class="home-hero">

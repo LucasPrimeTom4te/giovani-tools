@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login – Ferramentas</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { background: #f5f5f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .login-box {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+    .login-title { font-size: 1.4rem; font-weight: 700; color: #111; margin-bottom: 0.3rem; }
+    .login-subtitle { font-size: 0.9rem; color: #666; margin-bottom: 2rem; }
+    .field { margin-bottom: 1.1rem; }
+    .field label { display: block; font-size: 0.85rem; font-weight: 600; color: #333; margin-bottom: 0.4rem; }
+    .field input {
+      width: 100%; box-sizing: border-box;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus { border-color: #555; }
+    .btn-login {
+      width: 100%; padding: 0.65rem;
+      background: #111; color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 0.95rem; font-weight: 600;
+      font-family: inherit; cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.15s;
+    }
+    .btn-login:hover { background: #333; }
+    .btn-login:disabled { background: #aaa; cursor: default; }
+    .error-msg {
+      background: #fff0f0; border: 1px solid #fcc;
+      color: #c00; border-radius: 6px;
+      padding: 0.6rem 0.75rem; font-size: 0.875rem;
+      margin-bottom: 1rem; display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="login-title">Ferramentas</div>
+    <div class="login-subtitle">Entre com suas credenciais para continuar.</div>
+    <div class="error-msg" id="errorMsg"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="username">Usuário</label>
+        <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Senha</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-login" id="btnLogin">Entrar</button>
+    </form>
+  </div>
+  <script>
+    const form = document.getElementById('loginForm');
+    const errorMsg = document.getElementById('errorMsg');
+    const btnLogin = document.getElementById('btnLogin');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.style.display = 'none';
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Entrando...';
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+          }),
+        });
+        if (res.ok) {
+          window.location.href = '/';
+        } else {
+          const data = await res.json();
+          errorMsg.textContent = data.error || 'Usuário ou senha incorretos.';
+          errorMsg.style.display = 'block';
+        }
+      } catch {
+        errorMsg.textContent = 'Erro de conexão. Tente novamente.';
+        errorMsg.style.display = 'block';
+      }
+      btnLogin.disabled = false;
+      btnLogin.textContent = 'Entrar';
+    });
+  </script>
+</body>
+</html>
