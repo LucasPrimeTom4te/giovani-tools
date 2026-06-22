@@ -135,14 +135,18 @@
     async function salvarChave() {
       const val = document.getElementById('groq-key').value.trim();
       const fb = document.getElementById('feedback');
-      if (val) {
-        localStorage.setItem('groq-api-key-user', val);
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groqApiKey: val || null }),
+        });
+        if (!res.ok) throw new Error();
         fb.className = 'feedback ok';
-        fb.textContent = 'Chave salva com sucesso!';
-      } else {
-        localStorage.removeItem('groq-api-key-user');
-        fb.className = 'feedback ok';
-        fb.textContent = 'Chave removida. O sistema voltará a usar a chave padrão.';
+        fb.textContent = val ? 'Chave salva com sucesso!' : 'Chave removida.';
+      } catch {
+        fb.className = 'feedback err';
+        fb.textContent = 'Erro ao salvar. Tente novamente.';
       }
       document.getElementById('groq-key').value = '';
       await carregarConfig();
@@ -150,10 +154,15 @@
 
     async function limparChave() {
       document.getElementById('groq-key').value = '';
-      localStorage.removeItem('groq-api-key-user');
       const fb = document.getElementById('feedback');
-      fb.className = 'feedback ok';
-      fb.textContent = 'Chave personalizada removida. O sistema voltará a usar a chave padrão.';
+      try {
+        await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groqApiKey: null }) });
+        fb.className = 'feedback ok';
+        fb.textContent = 'Chave removida com sucesso.';
+      } catch {
+        fb.className = 'feedback err';
+        fb.textContent = 'Erro ao remover.';
+      }
       await carregarConfig();
     }
 
